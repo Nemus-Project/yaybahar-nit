@@ -29,7 +29,7 @@ tail = 1;
 %%%%% Custom Parameters
 play = true;
 playDry = false;
-saveAudio = false;
+saveAudio = true;
 
 %Normalize output (before visualization)
 normalizeOut = true;
@@ -250,14 +250,13 @@ if saveAudio
             index = i/(osFac);
             outPlay(index) = output(i);
         end
-    end
-    if physicalDamp cCoeff = 'Phys'; end    
+    end    
     if strcmp(inputType, 'audiofile') 
         split1 = strsplit(audiofileName,'/');
         split2 = strsplit(string(split1(2)),'.');
-        fileName = strcat('wet_samples/physicalDamp/','amp',string(amp),'_a',string(aCoeff),'_c',string(cCoeff),'_',string(split2(1)),'_',nLins(nLinType+1),'.wav');
+        fileName = strcat('Sounds/Cello/',string(split2(1)),'.wav');
     else
-        fileName = strcat('wet_samples/Test/','amp',string(amp),'_a',string(aCoeff),'_c',string(cCoeff),'_',inputType,'_',nLins(nLinType+1),'.wav');
+        fileName = strcat('Sounds/Test/',inputType,'.wav');
     end
     diffOutPlay = diff(outPlay);
     audiowrite(fileName,diffOutPlay/max(abs(diffOutPlay)),SR/osFac);

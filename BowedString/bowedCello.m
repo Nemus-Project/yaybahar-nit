@@ -23,9 +23,9 @@ desvagesFriction = false;
 stringToPlay = 2;   %0=A3, 1=D3, 2=G2, 3=C2
 
 %sets if to let the string free to vibrate at the end or to stop it
-freeVib = true;
+freeVib = false;
 
-saveAudio = false;
+saveAudio = true;
 if saveAudio
     cond = '_Stop';
     if freeVib
@@ -41,7 +41,7 @@ if saveAudio
     case 3
         string = 'C2';
 end
-    fileName = strcat('../Sounds/Cello/Notes/',string,cond,'.wav');
+    fileName = strcat('Sounds/',string,cond,'.wav');
 end
 
 osFac = 2;          %Oversampling factor
@@ -141,7 +141,6 @@ c = sqrt(T0/rA);
 a = 100;            %Bow free parameter
 muD = 0.3;          %Desvages friction parameter
 
-
 %%%%% Bow Speed & Pressure
 bowVel = zeros(1,timeSamples);
 
@@ -174,8 +173,9 @@ EIB    = EB*InertiaB;
 
 zContact = 0.43*LB;
 
-outPos1 = floor(0.334*LB/h);
-outPos2 = outPos1;% floor(0.773*LB/h);
+outPosDecimal = 0.334*LB/h;
+outPos = floor(0.334*LB/h);
+alphaFac = outPosDecimal - outPos;
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%% Initializing Discrete Operators
@@ -231,7 +231,7 @@ inProd = VsortM*Vsort;
 %%%%% Computing Damping Parameters
 sigma0 = zeros(modesNumber,1);
 for i = 1:modesNumber
-    sigma0(i) = 0;%- ComputeDamp(rho,radius,E,T0,eigenFreqs(i));
+    sigma0(i) = - ComputeDamp(rho,radius,E,T0,eigenFreqs(i));
 end
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
@@ -266,7 +266,7 @@ JOmega = [zeros(modesNumber),eye(modesNumber);-diag(eigenFreqs.^2),zeros(modesNu
 C = [zeros(modesNumber),zeros(modesNumber);zeros(modesNumber),diag(sigma0)];
 
 %%%%% Initializing outputs
-Out = zeros(timeSamples,2);
+output = zeros(timeSamples,1);
 
 %%%%% Initializing Sherman Morrison Algorithm
 %Offline computation of part of matrix A and extracting diagonal components
@@ -348,9 +348,15 @@ for i = 1:timeSamples
         ylim([-2e-4,2e-4])
         drawnow;
     end
-
-    Out(i,:)= [vNext(Ms-1 + outPos1), vNext(Ms-1 + outPos1)];
-%     Out(i,:)= [uNext(50), uNext(50)];
+    
+    dxxxOut = (1/h^3)*(alphaFac*vNext(Ms-1 + outPos + 3) + ...
+        (1-alphaFac)*vNext(Ms-1 + outPos + 2) - ...
+        3*(alphaFac*vNext(Ms-1 + outPos + 2) + (1-alphaFac)*vNext(Ms-1 + outPos + 1)) + ...
+        3*(alphaFac*vNext(Ms-1 + outPos + 1) + (1-alphaFac)*vNext(Ms-1 + outPos)) - ...
+        (alphaFac*vNext(Ms-1 + outPos) + (1-alphaFac)*vNext(Ms-1 + outPos - 1)));
+    
+    output(i) = -EIB*dxxxOut;
+%     output(i,:)= [vNext(Ms-1 + outPos), vNext(Ms-1 + outPos)];
 
     x = xNext;
 end
@@ -360,9 +366,7 @@ realTimeFrac = toc/T
 %%%%% Retrieving undersampled output
 
 %Calculating derivative for better sound output
-OutDiff1 = diff(Out(:,1));
-OutDiff2 = diff(Out(:,2));
-OutDiff = [OutDiff1,OutDiff2];
+OutDiff = diff(output);
 
 finalOSFac = 1;
 if finalOSFac>osFac disp("Undersampling Error."); return; end
@@ -370,20 +374,17 @@ if finalOSFac>osFac disp("Undersampling Error."); return; end
 OutPlay = zeros(floor(timeSamples/(osFac/finalOSFac)),2);
 
 %lowpassing before downsampling for recording
-lowpass(Out(:,1),20000,SR);
-lowpass(Out(:,2),20000,SR);
-for i=1:size(Out,1)
+lowpass(output(:),20000,SR);
+for i=1:size(output,1)
     if ~mod(i,osFac) || mod(i,osFac) == osFac/finalOSFac
         index = i/(osFac/finalOSFac);
-        OutPlay(index,:) = Out(i,:);
+        OutPlay(index) = output(i);
     end
 end
 
 OutLP = OutPlay;
 
-OutPlay1 = diff(OutPlay(:,1));
-OutPlay2 = diff(OutPlay(:,2));
-OutPlay = [OutPlay1/max(abs(OutPlay1)),OutPlay2/max(abs(OutPlay2))];
+OutPlay = diff(OutPlay(:));
 
 %if play soundsc(OutPlay,SR/osFac*finalOSFac); end
 if play soundsc(OutDiff,SR); end
@@ -397,10 +398,8 @@ fontSize = 18;
 lineWidth = 1.5;
 
 figure
-plot(timeVec*1000,Out(:,1))
-hold on
-plot(timeVec*1000,Out(:,2))
-ylim([min(min(Out)),max(max(Out))]);
+plot(timeVec*1000,output)
+ylim([min(min(output)),max(max(output))]);
 xlabel('Time [s]');
 ylabel("u(t,x_o) [m]");
 
