@@ -10,26 +10,26 @@ close all
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Excitation Signal
 %'impulse', 'sin', 'square', 'sweep', 'audiofile'
-inputType = 'impulse'; 
+inputType = 'audiofile'; 
 %in case inputType is 'audiofile', specify file name and path
-audiofileName = 'dry_samples/DrumReference.wav';
+audiofileName = '../Spring/Sounds/Cello/C2_Stop.wav';
 %amplification factor
 amp = 1; 
 osFac = 1;
 %if inputDur is set to 0 when audiofileName is 'audiofile', the entire file
 %is played, otherwise only a portion of it
-inputDur = 2;
+inputDur = 0;
 %tail indicates how long sound should be played after the input signal is
 %stopped. The value returned with durSec is inputDur + tail
-tail = 1;
-% [excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,durSec,tail,inputType,audiofileName);
-[excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,inputDur,tail,inputType);
+tail = 4;
+[excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,inputDur,tail,inputType,audiofileName);
+% [excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,inputDur,tail,inputType);
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Custom Parameters
 play = true;
 playDry = false;
-saveAudio = false;
+saveAudio = true;
 
 stereo = true;
 
@@ -179,18 +179,18 @@ if saveAudio
             index = i/(osFac);
             outPlay(index) = output(i);
         end
-    end
-    if physicalDamp cCoeff = 'Phys'; end    
+    end    
     if strcmp(inputType, 'audiofile') 
         split1 = strsplit(audiofileName,'/');
-        split2 = strsplit(string(split1(2)),'.');
-        fileName = strcat('wet_samples/physicalDamp/','amp',string(amp),'_a',string(aCoeff),'_c',string(cCoeff),'_',string(split2(1)),'_',nLins(nLinType+1),'.wav');
+        split2 = strsplit(string(split1(5)),'.');
+        fileName = strcat('Sounds/Cello/',string(split2(1)),'.wav');
     else
-        fileName = strcat('wet_samples/Test/','amp',string(amp),'_a',string(aCoeff),'_c',string(cCoeff),'_',inputType,'_',nLins(nLinType+1),'.wav');
+        fileName = strcat('Sounds/Test/',inputType,'.wav');
     end
     diffOutPlay = diff(outPlay);
     audiowrite(fileName,diffOutPlay/max(abs(diffOutPlay)),SR/osFac);
 end
+
 %% Functions
 function o = ComputeOmega(m1,m2,T,rho,Lx,Ly,Lz)
     coeff = (m1.^2*pi^2)/Lx^2 + (m2.^2*pi^2)/Ly^2;
@@ -244,16 +244,19 @@ function [excit,SR,k,timeSamples,timeVec,durSec]=ExcitSignal(amp,OSFac,inputDur,
                 end
                 k = 1/SR;
                 if inputDur
-                    excit = [amp*excit(1:floor(SR*inputDur),1),zeros(1,SR*tail)];
+                    excit = [amp*excit(1:floor(SR*inputDur),1);zeros(SR*tail,1)];
                 else
-                    excit = [amp*excit,zeros(1,SR*tail)];
+                    excit = [amp*excit;zeros(SR*tail,1)];
                 end
                 timeSamples = length(excit);
                 timeVec = (1:timeSamples)*k;
-                durSec = timeSamples/SR;
+                durSec = floor(timeSamples/SR);
             end
         otherwise
             disp("wrong input type");
             return
+    end
+    if tail
+        excit(end - (tail*SR) + 1: end - (tail*SR) + 100) = (linspace(excit(end-(tail*SR)),0)).';
     end
 end

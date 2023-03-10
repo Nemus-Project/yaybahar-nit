@@ -20,7 +20,7 @@ smSolver = true;
 %sets if to use the improved friction model from desvages
 desvagesFriction = false;
 
-stringToPlay = 2;   %0=A3, 1=D3, 2=G2, 3=C2
+stringToPlay = 3;   %0=A3, 1=D3, 2=G2, 3=C2
 
 %sets if to let the string free to vibrate at the end or to stop it
 freeVib = false;

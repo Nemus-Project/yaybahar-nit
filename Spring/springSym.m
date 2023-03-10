@@ -10,20 +10,20 @@ close all
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Excitation Signal
 %'impulse', 'sin', 'square', 'sweep', 'audiofile'
-inputType = 'square'; 
+inputType = 'audiofile'; 
 %in case inputType is 'audiofile', specify file name and path
-audiofileName = 'dry_samples/DrumReference.wav';
+audiofileName = '../BowedString/Sounds/C2_Stop.wav';
 %amplification factor
 amp = 1; 
 osFac = 1;
 %if inputDur is set to 0 when audiofileName is 'audiofile', the entire file
 %is played, otherwise only a portion of it
-inputDur = 2;
+inputDur = 0;
 %tail indicates how long sound should be played after the input signal is
 %stopped. The value returned with durSec is inputDur + tail
-tail = 1;
-% [excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,durSec,tail,inputType,audiofileName);
-[excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,inputDur,tail,inputType);
+tail = 3;
+[excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,inputDur,tail,inputType,audiofileName);
+% [excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,inputDur,tail,inputType);
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Custom Parameters
@@ -35,7 +35,7 @@ saveAudio = true;
 normalizeOut = true;
 
 % if 0 reads displacement, otherwise force at output
-readForce = 0;
+readForce = 1;
 
 omegaLim = 2/k;
 
@@ -46,7 +46,7 @@ alpha = 2;
 E = 2e11;
 ni = 0.3;   
 rho = 7.872e3;
-L = 10;
+L = 20;
 
 kappaSq = (r/2)^2;
 
@@ -107,10 +107,10 @@ modesOutm = sqrt(2/L)*sin(outPoint*pi*modesIndices/L);
 
 %%%%% Computing eigenfrequencies, eigenvectors and other vectors
 eigenFreqs = zeros(2*modesNumber,1);
-eigenVecs = zeros(2*modesNumber);
-eigenVecsInv = zeros(2*modesNumber);
-AmatsInv = zeros(2*modesNumber);
-DinvRmats = zeros(2*modesNumber);
+eigenVecs = sparse(zeros(2*modesNumber));
+eigenVecsInv = sparse(zeros(2*modesNumber));
+AmatsInv = sparse(zeros(2*modesNumber));
+DinvRmats = sparse(zeros(2*modesNumber));
 alphaVec = zeros(2*modesNumber,1);
 betaVec = zeros(2*modesNumber,1);
 
@@ -220,8 +220,6 @@ if ~strcmp(inputType,'audiofile')
     view(2)
     ylim([20,20000]);
     xlim([0,t(end)]);
-    yticks([20 10000 20000])
-    xticks([0 1 t(end)])
     set(gca,'FontSize',fontSize);
     ylabel("Frequency (Hz)");
     xlabel("Time (s)");
@@ -244,6 +242,7 @@ end
 
 if saveAudio
     outPlay = zeros(floor(timeSamples/(osFac/1)),2);
+    figure(3)
     lowpass(output,20000,SR);
     for i=1:length(output)
         if ~mod(i,osFac) || mod(i,osFac) == osFac
@@ -253,7 +252,7 @@ if saveAudio
     end    
     if strcmp(inputType, 'audiofile') 
         split1 = strsplit(audiofileName,'/');
-        split2 = strsplit(string(split1(2)),'.');
+        split2 = strsplit(string(split1(4)),'.');
         fileName = strcat('Sounds/Cello/',string(split2(1)),'.wav');
     else
         fileName = strcat('Sounds/Test/',inputType,'.wav');
@@ -321,16 +320,20 @@ function [excit,SR,k,timeSamples,timeVec,durSec]=ExcitSignal(amp,OSFac,inputDur,
                 end
                 k = 1/SR;
                 if inputDur
-                    excit = [amp*excit(1:floor(SR*inputDur),1),zeros(1,SR*tail)];
+                    excit = [amp*excit(1:floor(SR*inputDur),1);zeros(SR*tail,1)];
                 else
-                    excit = [amp*excit,zeros(1,SR*tail)];
+                    excit = [amp*excit;zeros(SR*tail,1)];
                 end
                 timeSamples = length(excit);
                 timeVec = (1:timeSamples)*k;
-                durSec = timeSamples/SR;
+                durSec = floor(timeSamples/SR);
             end
         otherwise
             disp("wrong input type");
             return
+    end
+    if tail
+        %smoothing out sound tail to avoid impulses
+        excit(end - (tail*SR) + 1: end - (tail*SR) + 100) = (linspace(excit(end-(tail*SR)),0)).';
     end
 end
