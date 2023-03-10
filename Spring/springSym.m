@@ -34,6 +34,9 @@ saveAudio = false;
 %Normalize output (before visualization)
 normalizeOut = true;
 
+% if 0 reads displacement, otherwise force at output
+readForce = 0;
+
 omegaLim = 2/k;
 
 R = 1e-2;
@@ -104,10 +107,10 @@ modesOutm = sqrt(2/L)*sin(outPoint*pi*modesIndices/L);
 
 %%%%% Computing eigenfrequencies, eigenvectors and other vectors
 eigenFreqs = zeros(2*modesNumber,1);
-eigenVecs = zeros(2*modesNumber,2);
-eigenVecsInv = zeros(2*modesNumber,2);
-AmatsInv = zeros(2*modesNumber,2);
-DinvRmats = zeros(2*modesNumber,2);
+eigenVecs = zeros(2*modesNumber);
+eigenVecsInv = zeros(2*modesNumber);
+AmatsInv = zeros(2*modesNumber);
+DinvRmats = zeros(2*modesNumber);
 alphaVec = zeros(2*modesNumber,1);
 betaVec = zeros(2*modesNumber,1);
 
@@ -126,23 +129,28 @@ for i = 1:modesNumber
 
     eigenFreqs(2*i - 1) = omegaM;
     eigenFreqs(2*i) = omegaP;
-    eigenVecs(2*i - 1:2*i, :) = evcs;
+    eigenVecs(2*i - 1:2*i, 2*i - 1:2*i) = evcs;
 
-    eigenVecsInv(2*i - 1:2*i, :) = inv(evcs);
+    eigenVecsInv(2*i - 1:2*i, 2*i - 1:2*i) = inv(evcs);
 
-    AmatsInv(2*i - 1,1) = 1/(rho*A);
-    AmatsInv(2*i,2) = 1/(rho*A*(1-l^2*S^2));
+    AmatsInv(2*i - 1,2*i - 1) = 1/(rho*A);
+    AmatsInv(2*i,2*i) = 1/(rho*A*(1-l^2*S^2));
 
     alpha1 = alphaParam/normalAlphaParam;
     alpha2 = (1-alphaParam)/normalAlphaParam;
 
-    betaVec(2*i-1:2*i) = modesIn(i)*eigenVecsInv(2*i-1:2*i,:)*AmatsInv(2*i-1:2*i,:)*[alpha1;alpha2];
+    betaVec(2*i-1:2*i) = modesIn(i)*eigenVecsInv(2*i-1:2*i,2*i - 1:2*i)*AmatsInv(2*i-1:2*i,2*i - 1:2*i)*[alpha1;alpha2];
 
-    DinvRmats(2*i-1, 1) = -2*mu*E*kappaSq*A/l;
-    DinvRmats(2*i-1, 2) = E*kappaSq*A*((1-mu^2)/l - l*S^2);
-    DinvRmats(2*i, 1) = ((1-mu^2)/l - l*S^2)*(E*kappaSq*A)/(1+ni+l^2*S^2);
-    DinvRmats(2*i-1, 1) = 2*mu*(1/l - l*S^2)*(E*kappaSq*A)/(1+ni+l^2*S^2);
+    DinvRmats(2*i-1, 2*i - 1) = -2*mu*E*kappaSq*A/l;
+    DinvRmats(2*i-1, 2*i) = E*kappaSq*A*((1-mu^2)/l - l*S^2);
+    DinvRmats(2*i, 2*i - 1) = ((1-mu^2)/l - l*S^2)*(E*kappaSq*A)/(1+ni+l^2*S^2);
+    DinvRmats(2*i-1, 2*i) = 2*mu*(1/l - l*S^2)*(E*kappaSq*A)/(1+ni+l^2*S^2);
 end
+
+%+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
+%%%%% Damping Coefficients
+%divided by 2 because here 2sigma0 is considered (Bilbao convention)
+sigmaCoeffs = sigma0 + sigma1*((eigenFreqs*pi/L).^2); 
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %% Simulation
@@ -153,54 +161,40 @@ etaw = zeros(modesNumber,1);
 etamu = zeros(modesNumber,1);
 etamw = zeros(modesNumber,1);
 
-zetau = zeros(modesNumber,1);
-zetaw = zeros(modesNumber,1);
-
-zetauNext = zeros(modesNumber,1);
-zetawNext = zeros(modesNumber,1);
-
-zetauPrev = zeros(modesNumber,1);
-zetawPrev = zeros(modesNumber,1);
+zeta = zeros(2*modesNumber,1);
+zetaNext = zeros(2*modesNumber,1);
+zetaPrev = zeros(2*modesNumber,1);
 
 output = zeros(1,timeSamples);
 
-Au = (2-eigenFreqs(2*i-1)^2*k^2)/(1+0.5*sigma*k);
+A = (2 - eigenFreqs(:,1).^2*k^2)./(1 + 0.5*sigmaCoeffs*k);
+B = (0.5*sigmaCoeffs*k - 1)./(1 + 0.5*sigmaCoeffs*k);
+C = betaVec./(1+0.5*sigmaCoeffs*k);
+
+S = modesIndices*pi/L;
+
 tic
 for n = 1:timeSamples
     exc = excit(n);
-    for i = 1:modesNumber
-        m = modesIndices(i);
-        S = (m*pi/L);
-        sigma = sigma0 + S^2*sigma1;
-        zetauNext(i) = zetau(i)*(2-eigenFreqs(2*i-1)^2*k^2)/(1+0.5*sigma*k) + ... 
-            zetauPrev(i)*(0.5*sigma*k-1)/(1+0.5*sigma*k) + ...
-            betaVec(2*i-1)*exc/(1+0.5*sigma*k);
-        zetawNext(i) = zetaw(i)*(2-eigenFreqs(2*i)^2*k^2)/(1+0.5*sigma*k) + ... 
-            zetawPrev(i)*(0.5*sigma*k-1)/(1+0.5*sigma*k) + ...
-            betaVec(2*i)*exc/(1+0.5*sigma*k);
+    zetaNext = zeta.*A + zetaPrev.*B + C*exc;
 
-        temp = eigenVecs(2*i-1:2*i,:)*[zetauNext(i); zetawNext(i)];
-%         etau(i) = temp(1); etaw(i) = temp(2);
+    zetaPrev = zeta;
+    zeta = zetaNext;
 
-        etam = DinvRmats(2*i-1:2*i,:)*temp;
-        etamu(i) = etam(1); etamw(i) = etam(2);
-    end
-%     plot(etamw);
-%     drawnow
-%     pause
+    eta = eigenVecs*zetaNext;
 
-    zetauPrev = zetau;
-    zetau = zetauNext;
-
-    zetawPrev = zetaw;
-    zetaw = zetawNext;
-
-    u = modesOut.'*etau;
-    w = modesOut.'*etaw;
-    output(n) = (u+w)/2;
+    if ~readForce
+        u = modesOut.'*eta(1:2:end);
+        w = modesOut.'*eta(2:2:end);
     
-%     fout = (-2*mu/l)*modesOutm.'*etamu + ((1-mu^2)/l)*modesOutm.'*etamw - l*((pi*modesIndices/L).^2.*modesOutm).'*etamw;
-%     output(n) = fout;
+        output(n) = (u+w)/2;
+    else
+        etam = DinvRmats*eta;
+        etamu = etam(1:2:end);
+        etamw = etam(2:2:end);
+        fout = (-2*mu/l)*modesOutm.'*etamu + ((1-mu^2)/l)*modesOutm.'*etamw - l*((pi*modesIndices/L).^2.*modesOutm).'*etamw;
+        output(n) = fout;
+    end
 
 end
 realTimeFrac = toc/durSec
