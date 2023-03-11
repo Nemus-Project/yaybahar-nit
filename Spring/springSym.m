@@ -12,7 +12,7 @@ close all
 %'impulse', 'sin', 'square', 'sweep', 'audiofile'
 inputType = 'audiofile'; 
 %in case inputType is 'audiofile', specify file name and path
-audiofileName = '../BowedString/Sounds/C2_Stop.wav';
+audiofileName = '../BowedString/Sounds/D3_Stop_rauc.wav';
 %amplification factor
 amp = 1; 
 osFac = 1;

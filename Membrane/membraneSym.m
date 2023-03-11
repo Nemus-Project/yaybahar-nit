@@ -12,7 +12,7 @@ close all
 %'impulse', 'sin', 'square', 'sweep', 'audiofile'
 inputType = 'audiofile'; 
 %in case inputType is 'audiofile', specify file name and path
-audiofileName = '../Spring/Sounds/Cello/C2_Stop.wav';
+audiofileName = '../Spring/Sounds/Cello/D3_Stop_rauc.wav';
 %amplification factor
 amp = 1; 
 osFac = 1;
@@ -183,7 +183,7 @@ if saveAudio
     if strcmp(inputType, 'audiofile') 
         split1 = strsplit(audiofileName,'/');
         split2 = strsplit(string(split1(5)),'.');
-        fileName = strcat('Sounds/Cello/',string(split2(1)),'.wav');
+        fileName = strcat('Sounds/',string(split2(1)),'.wav');
     else
         fileName = strcat('Sounds/Test/',inputType,'.wav');
     end
