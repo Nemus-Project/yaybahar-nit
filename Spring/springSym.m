@@ -12,7 +12,7 @@ close all
 %'impulse', 'sin', 'square', 'sweep', 'audiofile'
 inputType = 'audiofile'; 
 %in case inputType is 'audiofile', specify file name and path
-audiofileName = '../BowedString/Sounds/D3_Stop_rauc.wav';
+audiofileName = '../BowedString/Sounds/G2_Stop_rauc.wav';
 %amplification factor
 amp = 1; 
 osFac = 1;
@@ -21,7 +21,7 @@ osFac = 1;
 inputDur = 0;
 %tail indicates how long sound should be played after the input signal is
 %stopped. The value returned with durSec is inputDur + tail
-tail = 3;
+tail = 10;
 [excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,inputDur,tail,inputType,audiofileName);
 % [excit,SR,k,timeSamples,timeVec,durSec] = ExcitSignal(amp,osFac,inputDur,tail,inputType);
 
@@ -58,14 +58,14 @@ G = E/(2*(1 + ni));
 
 A = pi*r^2;
 
-outPoint = 0.95*L;
+outPoint = 0.9*L;
 inPoint = 0;%0.35432*L;
 
 %sets how much excitation goes to one or the other polarization
 alphaParam = 0.5;
 normalAlphaParam = sqrt(alphaParam^2 - 2*alphaParam + 1);
 
-sigma0 = 2;
+sigma0 = 0.8;
 sigma1 = 1e-6;
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
@@ -236,20 +236,28 @@ if play
         soundsc(excit,SR);
         pause(durSec)
     end
-    diffOut = diff(output);
-    soundsc(diffOut,SR);
+%     diffOut = diff(output);
+%     soundsc(diffOut,SR);
+      soundsc(output,SR);
 end
 
 if saveAudio
-    outPlay = zeros(floor(timeSamples/(osFac/1)),2);
-    figure(3)
-    lowpass(output,20000,SR);
-    for i=1:length(output)
-        if ~mod(i,osFac) || mod(i,osFac) == osFac
-            index = i/(osFac);
-            outPlay(index) = output(i);
-        end
-    end    
+    %manual downsample
+%     outPlay = zeros(floor(timeSamples/(osFac/1)),2);
+%     figure(3)
+%     lowpass(output,20000,SR);
+%     for i=1:length(output)
+%         if ~mod(i,osFac) || mod(i,osFac) == osFac
+%             index = i/(osFac);
+%             outPlay(index) = output(i);
+%         end
+%     end  
+    if osFac>1
+        outPlay = downsample(output,osFac);
+    else
+        outPlay = output;
+    end
+    outPlay = outPlay/(max(abs(outPlay))+1e-3);
     if strcmp(inputType, 'audiofile') 
         split1 = strsplit(audiofileName,'/');
         split2 = strsplit(string(split1(4)),'.');
@@ -257,8 +265,9 @@ if saveAudio
     else
         fileName = strcat('Sounds/Test/',inputType,'.wav');
     end
-    diffOutPlay = diff(outPlay);
-    audiowrite(fileName,diffOutPlay/max(abs(diffOutPlay)),SR/osFac);
+%     diffOutPlay = diff(outPlay);
+%     audiowrite(fileName,diffOutPlay/max(abs(diffOutPlay)),SR/osFac);
+    audiowrite(fileName,outPlay,SR);
 end
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
@@ -290,7 +299,7 @@ function [excit,SR,k,timeSamples,timeVec,durSec]=ExcitSignal(amp,OSFac,inputDur,
             timeVec = (1:timeSamples)*k;
             if excitType == "impulse"
                 excit = zeros(timeSamples,1);
-                excit(5)=amp*1;
+                excit(1:SR/2:SR*inputDur)=amp*1;
             elseif excitType == "sin"
                 excit = zeros(timeSamples,1);
                 excit(1:inputDur*SR) = amp*sin(200*2*pi*timeVec(1:SR*inputDur));
@@ -334,6 +343,9 @@ function [excit,SR,k,timeSamples,timeVec,durSec]=ExcitSignal(amp,OSFac,inputDur,
     end
     if tail
         %smoothing out sound tail to avoid impulses
-        excit(end - (tail*SR) + 1: end - (tail*SR) + 100) = (linspace(excit(end-(tail*SR)),0)).';
+        fadeEnvLength = floor(SR/5);
+        fadeEnv = linspace(1,0,fadeEnvLength).';
+        fade = fadeEnv.*excit(end - (tail*SR) - fadeEnvLength + 1: end - (tail*SR));
+        excit(end-(tail*SR)-fadeEnvLength+1: end - (tail*SR)) = fade;
     end
 end

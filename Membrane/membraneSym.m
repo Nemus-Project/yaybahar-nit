@@ -40,13 +40,13 @@ omegaLim = 2/k;
 
 Lx = 0.5;                       %[m] Hor length
 Ly = 0.5;                       %[m] Ver lentgh
-Lz = 5e-5;                    %[m] Thickness
+Lz = 5e-4;                    %[m] Thickness
 
 rho = 1400; %Mylar density in kg/m^3
 
 T = 1000;                      %[N] Tension
 
-sigma0 = 2; sigma1 = 1e-3;
+sigma0 = 0.5; sigma1 = 1e-5;
 
 inPoint = [0.52*Lx,0.53*Ly];
 outPoint1 = [0.47*Lx,0.62*Ly];
@@ -167,19 +167,30 @@ if play
         soundsc(excit,SR);
         pause(durSec)
     end
-    diffOut = diff(output);
-    soundsc(diffOut,SR);
+    if stereo
+        OutPlay1 = downsample(output(:,1),osFac);
+        OutPlay2 = downsample(output(:,2),osFac);
+        diffOutPlay1 = diff(OutPlay1);
+        diffOutPlay2 = diff(OutPlay2);
+
+        soundsc([diffOutPlay1,diffOutPlay2],SR);
+    else
+        OutPlay = downsample(output,osFac);
+        diffOutPlay = diff(OutPlay);
+        soundsc(diffOutPlay,SR);
+    end
 end
 
 if saveAudio
-    outPlay = zeros(floor(timeSamples/(osFac/1)),2);
-    lowpass(output,20000,SR);
-    for i=1:length(output)
-        if ~mod(i,osFac) || mod(i,osFac) == osFac
-            index = i/(osFac);
-            outPlay(index) = output(i);
-        end
-    end    
+%     outPlay = zeros(floor(timeSamples/(osFac/1)),2);
+%     lowpass(output,20000,SR);
+%     for i=1:length(output)
+%         if ~mod(i,osFac) || mod(i,osFac) == osFac
+%             index = i/(osFac);
+%             outPlay(index) = output(i);
+%         end
+%     end    
+    
     if strcmp(inputType, 'audiofile') 
         split1 = strsplit(audiofileName,'/');
         split2 = strsplit(string(split1(5)),'.');
@@ -187,8 +198,15 @@ if saveAudio
     else
         fileName = strcat('Sounds/Test/',inputType,'.wav');
     end
-    diffOutPlay = diff(outPlay);
-    audiowrite(fileName,diffOutPlay/max(abs(diffOutPlay)),SR/osFac);
+    if stereo
+    %     audiowrite(fileName,diffOutPlay/max(abs(diffOutPlay)),SR/osFac);
+       diffOutPlay1 = diffOutPlay1/max(abs(diffOutPlay1)+1e-4);
+        diffOutPlay2 = diffOutPlay2/max(abs(diffOutPlay2)+1e-4);
+        audiowrite(fileName,[diffOutPlay1,diffOutPlay2],SR/osFac);
+    else
+        diffOutPlay = diffOutPlay/max(abs(diffOutPlay)+1e-4);
+        audiowrite(fileName,diffOutPlay,SR/osFac);
+    end
 end
 
 %% Functions
@@ -257,6 +275,10 @@ function [excit,SR,k,timeSamples,timeVec,durSec]=ExcitSignal(amp,OSFac,inputDur,
             return
     end
     if tail
-        excit(end - (tail*SR) + 1: end - (tail*SR) + 100) = (linspace(excit(end-(tail*SR)),0)).';
+        %smoothing out sound tail to avoid impulses
+        fadeEnvLength = floor(SR/5);
+        fadeEnv = linspace(1,0,fadeEnvLength).';
+        fade = fadeEnv.*excit(end - (tail*SR) - fadeEnvLength + 1: end - (tail*SR));
+        excit(end-(tail*SR)-fadeEnvLength+1: end - (tail*SR)) = fade;    
     end
 end

@@ -10,22 +10,26 @@ close all
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Custom Parameters
+play = true;
+saveAudio = false;
+
 realTimeDraw = false;
 
-play = true;
+normalizeOut = true;
 
 %if set true the system is solved with Sherman Morrison formula, otherwise with backslash
 smSolver = true;
 
-%sets if to use the improved friction model from desvages
-desvagesFriction = false;
-
-stringToPlay = 3;   %0=A3, 1=D3, 2=G2, 3=C2
+stringToPlay = 2;   %0=A3, 1=D3, 2=G2, 3=C2
 
 %sets if to let the string free to vibrate at the end or to stop it
 freeVib = false;
 
-saveAudio = true;
+%sets if to use the improved friction model from desvages
+desvagesFriction = false;
+
+osFac = 4;          %Oversampling factor
+
 if saveAudio
     cond = '_Stop';
     if freeVib
@@ -44,7 +48,6 @@ end
     fileName = strcat('Sounds/',string,cond,'.wav');
 end
 
-osFac = 2;          %Oversampling factor
 SR = 44100*osFac;   %Sample rate [Hz]
 T = 5;              %Time of Simulation [s]
 
@@ -100,7 +103,7 @@ switch stringToPlay
         if freeVib
             startFb = 0.01; maxFb = 0.05; endFb = 0;
         else 
-            maxFb = 0.05;
+            maxFb = 0.0009;
         end
     case 2
         % G2           
@@ -114,7 +117,7 @@ switch stringToPlay
         if freeVib
             startFb = 0.01; maxFb = 0.05; endFb = 0;
         else 
-            maxFb = 0.05;
+            maxFb = 0.08;
         end
     case 3
         % C2 
@@ -286,10 +289,7 @@ B1 = sparse(I + 0.5*k*JOmega - 0.5*k*C);
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Simulation
- fontSize = 14;
- lineWidth = 1.5;
- set(gca,'FontSize',fontSize);
- 
+
 tic
 for i = 1:timeSamples
     
@@ -345,7 +345,7 @@ for i = 1:timeSamples
 
     if realTimeDraw
         plot(vNext)
-        ylim([-2e-4,2e-4])
+        ylim([-5e-6,5e-6])
         drawnow;
     end
     
@@ -356,46 +356,23 @@ for i = 1:timeSamples
         (alphaFac*vNext(Ms-1 + outPos) + (1-alphaFac)*vNext(Ms-1 + outPos - 1)));
     
     output(i) = -EIB*dxxxOut;
-%     output(i,:)= [vNext(Ms-1 + outPos), vNext(Ms-1 + outPos)];
+%     output(i,:)= vNext(Ms-1 + outPos);%[vNext(Ms-1 + outPos), vNext(Ms-1 + outPos)];
 
     x = xNext;
 end
 realTimeFrac = toc/T
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
-%%%%% Retrieving undersampled output
-
-%Calculating derivative for better sound output
-OutDiff = diff(output);
-
-finalOSFac = 1;
-if finalOSFac>osFac disp("Undersampling Error."); return; end
-
-OutPlay = zeros(floor(timeSamples/(osFac/finalOSFac)),2);
-
-%lowpassing before downsampling for recording
-lowpass(output(:),20000,SR);
-for i=1:size(output,1)
-    if ~mod(i,osFac) || mod(i,osFac) == osFac/finalOSFac
-        index = i/(osFac/finalOSFac);
-        OutPlay(index) = output(i);
-    end
-end
-
-OutLP = OutPlay;
-
-OutPlay = diff(OutPlay(:));
-
-%if play soundsc(OutPlay,SR/osFac*finalOSFac); end
-if play soundsc(OutDiff,SR); end
-if saveAudio
-    audiowrite(fileName,OutPlay,SR/osFac*finalOSFac);
-end
-
-%+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Plots
-fontSize = 18;
-lineWidth = 1.5;
+
+% fontSize = 18;
+% lineWidth = 1.5;
+% set(gca,'FontSize',fontSize);
+
+%normalizing output
+if normalizeOut
+    output = output/max(abs(output));
+end
 
 figure
 plot(timeVec*1000,output)
@@ -407,6 +384,40 @@ hold on
 plot(timeVec*1000,bowVel*1e-4);
 hold on
 plot(timeVec*1000,Fb*1e-6);
+
+%+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
+%%%%% Retrieving undersampled output
+
+%Calculating derivative for better sound output
+% OutDiff = diff(output);
+
+%manual downsample
+% finalOSFac = 1;
+% if finalOSFac>osFac disp("Undersampling Error."); return; end
+% OutPlay = zeros(floor(timeSamples/(osFac/finalOSFac)),2);
+%lowpassing before downsampling for recording
+% lowpass(output(:),20000,SR);
+% for i=1:size(output,1)
+%     if ~mod(i,osFac) || mod(i,osFac) == osFac/finalOSFac
+%         index = i/(osFac/finalOSFac);
+%         OutPlay(index) = output(i);
+%     end
+% end
+if osFac>1
+    outPlay = downsample(output,osFac);
+else
+    outPlay = output;
+end
+
+%OutPlay = diff(OutPlay(:));
+
+if play soundsc(outPlay,SR/osFac); end
+if saveAudio
+%     audiowrite(fileName,OutPlay,SR/osFac*finalOSFac);
+    %adding offset to prevent clipping
+    outPlay/(max(abs(outPlay))+1e-3);
+    audiowrite(fileName,outPlay,SR/osFac,'BitsPerSample',64);
+end
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Functions
