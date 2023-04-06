@@ -12,7 +12,7 @@ close all
 %'impulse', 'sin', 'square', 'sweep', 'audiofile'
 inputType = 'audiofile'; 
 %in case inputType is 'audiofile', specify file name and path
-audiofileName = '../Spring/Sounds/Cello/D3_Stop_rauc.wav';
+audiofileName = '../Spring/Sounds/Cello/C2_stop.wav';
 %amplification factor
 amp = 1; 
 osFac = 1;
@@ -40,17 +40,20 @@ omegaLim = 2/k;
 
 Lx = 0.5;                       %[m] Hor length
 Ly = 0.5;                       %[m] Ver lentgh
-Lz = 5e-4;                    %[m] Thickness
+Lz = 9e-4;%5e-5                    %[m] Thickness
 
 rho = 1400; %Mylar density in kg/m^3
 
-T = 1000;                      %[N] Tension
+rhoH = rho*Lz;
 
-sigma0 = 0.5; sigma1 = 1e-5;
+T = 3000; %1000;                      %[N] Tension
+
+sigma0 = 10; sigma1 = 5e-5;
+% sigma0 = 2; sigma1 = 1e-5;
 
 inPoint = [0.52*Lx,0.53*Ly];
 outPoint1 = [0.47*Lx,0.62*Ly];
-if stereo outPoint2 = [0.7*Lx,0.2*Ly]; end
+if stereo outPoint2 = [0.73*Lx,0.53*Ly]; end
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Computing eigenfrequencies and eigenvectors
@@ -109,6 +112,7 @@ A = (2 - eigenFreqs(:,1).^2*k^2)./(1 + 0.5*sigmaCoeffs*k);
 B = (0.5*sigmaCoeffs*k - 1)./(1 + 0.5*sigmaCoeffs*k);
 C = k^2*modesIn/(rho*Lz);
 
+tic
 for n = 1:timeSamples
     exc = excit(n);
 
@@ -120,6 +124,7 @@ for n = 1:timeSamples
     output(n) = modesOut.'*qNext;
     if stereo outputRight(n) = modesOut2.'*qNext; end
 end
+realTimeFrac = toc/durSec
 
 %% Plot & Sound
 figure(1)
@@ -135,9 +140,6 @@ if normalizeOut
         outputRight = outputRight/max(abs(outputRight)); 
     end
 end
-
-figure(1)
-plot(output);
 
 if ~strcmp(inputType,'audiofile')
     maxFreq = omegaLim/2/pi; %Hz
@@ -202,10 +204,10 @@ if saveAudio
     %     audiowrite(fileName,diffOutPlay/max(abs(diffOutPlay)),SR/osFac);
        diffOutPlay1 = diffOutPlay1/max(abs(diffOutPlay1)+1e-4);
         diffOutPlay2 = diffOutPlay2/max(abs(diffOutPlay2)+1e-4);
-        audiowrite(fileName,[diffOutPlay1,diffOutPlay2],SR/osFac);
+        audiowrite(fileName,[diffOutPlay1,diffOutPlay2],SR/osFac);%,'BitsPerSample',64);
     else
         diffOutPlay = diffOutPlay/max(abs(diffOutPlay)+1e-4);
-        audiowrite(fileName,diffOutPlay,SR/osFac);
+        audiowrite(fileName,diffOutPlay,SR/osFac);%,'BitsPerSample',64);
     end
 end
 

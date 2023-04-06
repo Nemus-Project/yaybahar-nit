@@ -9,10 +9,10 @@ close all
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Excitation Signal
-%'impulse', 'sin', 'square', 'sweep', 'audiofile'
+%'impulse', 'impulsetrain', 'sin', 'square', 'sweep', 'audiofile'
 inputType = 'audiofile'; 
 %in case inputType is 'audiofile', specify file name and path
-audiofileName = '../BowedString/Sounds/G2_Stop_rauc.wav';
+audiofileName = '../BowedString/Sounds/G2_stop.wav';
 %amplification factor
 amp = 1; 
 osFac = 1;
@@ -39,14 +39,18 @@ readForce = 1;
 
 omegaLim = 2/k;
 
-R = 1e-2;
-r = 0.5e-3;
+R = 9e-3;
+r = 1e-3;
+ 
+%michele values
+% R = 0.8e-2;
+% r = 0.5e-2;
 alpha = 2;
+L = 40;
 
 E = 2e11;
 ni = 0.3;   
 rho = 7.872e3;
-L = 20;
 
 kappaSq = (r/2)^2;
 
@@ -65,8 +69,10 @@ inPoint = 0;%0.35432*L;
 alphaParam = 0.5;
 normalAlphaParam = sqrt(alphaParam^2 - 2*alphaParam + 1);
 
-sigma0 = 0.8;
+sigma0 = 0.5;
 sigma1 = 1e-6;
+sigma0 = 3;
+sigma1 = 3e-9;
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %% Computing eigenfrequencies and modes
@@ -192,8 +198,17 @@ for n = 1:timeSamples
         etam = DinvRmats*eta;
         etamu = etam(1:2:end);
         etamw = etam(2:2:end);
-        fout = (-2*mu/l)*modesOutm.'*etamu + ((1-mu^2)/l)*modesOutm.'*etamw - l*((pi*modesIndices/L).^2.*modesOutm).'*etamw;
-        output(n) = fout;
+%         plot(etamu)
+%         drawnow
+
+%         fout = (-2*mu/l)*modesOutm.'*etamu + ((1-mu^2)/l)*modesOutm.'*etamw - l*((pi*modesIndices/L).^2.*modesOutm).'*etamw;
+%         output(n) = fout;
+
+        Fv = -sqrt(2/L)*((pi*modesIndices/L).*modesOut).'*etamu + 2*mu*sqrt(2/L)*((pi*modesIndices/L).*modesOut).'*etamw;
+        Fw = ((1-mu^2)/l)*sqrt(2/L)*(modesOutm).'*etamu - l*sqrt(2/L)*(((pi*modesIndices/L).^2).*modesOutm).'*etamu - (2*mu/l)*sqrt(2/L)*(modesOutm).'*etamw;
+%         Fu = ((1-mu^2)/l)*sqrt(2/L)*(modesOutm).'*etamw - l*sqrt(2/L)*(((pi*modesIndices/L).^2).*modesOutm).'*etamw + (2*mu/l)*sqrt(2/L)*(modesOutm).'*etamu - 2*mu*l*sqrt(2/L)*(((pi*modesIndices/L).^2).*modesOutm).'*etamu + l^2*rho*A*sqrt(2/L)*((pi*modesIndices/L).*modesOutm).'*(etamu
+%         output(n) = 0.2*Fv + 0.8*Fw;
+        output(n) = Fw;
     end
 
 end
@@ -267,7 +282,7 @@ if saveAudio
     end
 %     diffOutPlay = diff(outPlay);
 %     audiowrite(fileName,diffOutPlay/max(abs(diffOutPlay)),SR/osFac);
-    audiowrite(fileName,outPlay,SR);
+    audiowrite(fileName,outPlay,SR,'BitsPerSample',64);
 end
 
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
@@ -298,6 +313,9 @@ function [excit,SR,k,timeSamples,timeVec,durSec]=ExcitSignal(amp,OSFac,inputDur,
             k = 1/SR;
             timeVec = (1:timeSamples)*k;
             if excitType == "impulse"
+                excit = zeros(timeSamples,1);
+                excit(5)=amp*1;
+            elseif excitType == "impulsetrain"
                 excit = zeros(timeSamples,1);
                 excit(1:SR/2:SR*inputDur)=amp*1;
             elseif excitType == "sin"

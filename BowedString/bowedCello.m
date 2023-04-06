@@ -11,7 +11,7 @@ close all
 %+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++%
 %%%%% Custom Parameters
 play = true;
-saveAudio = false;
+saveAudio = true;
 
 realTimeDraw = false;
 
@@ -45,7 +45,8 @@ if saveAudio
     case 3
         string = 'C2';
 end
-    fileName = strcat('Sounds/',string,cond,'.wav');
+    fileName = strcat('Sounds/',string,cond,'_rauc','.wav');
+%     fileName = strcat('Sounds/',string,cond,'.wav');
 end
 
 SR = 44100*osFac;   %Sample rate [Hz]
@@ -84,12 +85,13 @@ switch stringToPlay
         T0 = 153;                           % tension [N] 
         E = 25e9;                          % young modulus [Pa]
 
-        excitPos = 0.833*L;
+        excitPos = 0.455*L;
         
         if freeVib
             startFb = 0.01; maxFb = 0.05; endFb = 0;
         else 
-            maxFb = 0.05;
+            %maxFb = 0.006;
+            maxFb = 0.05; %rauc
         end
     case 1
         % D3           
@@ -98,12 +100,13 @@ switch stringToPlay
         T0 = 102.6;                         
         E = 25e9;                           
 
-        excitPos = 0.833*L;
+        excitPos = 0.47*L;
 
         if freeVib
             startFb = 0.01; maxFb = 0.05; endFb = 0;
         else 
-            maxFb = 0.0009;
+            maxFb = 0.02;
+            %maxFb = 0.07; %rauc
         end
     case 2
         % G2           
@@ -118,6 +121,7 @@ switch stringToPlay
             startFb = 0.01; maxFb = 0.05; endFb = 0;
         else 
             maxFb = 0.08;
+            maxFb = 0.25; %rauc
         end
     case 3
         % C2 
@@ -131,7 +135,8 @@ switch stringToPlay
         if freeVib
             startFb = 0.01; maxFb = 0.05; endFb = 0;
         else 
-            maxFb = 0.05;
+            maxFb = 0.02;
+%             maxFb = 0.6; %rauc
         end
 end
 A = pi*radius^2;
@@ -415,7 +420,7 @@ if play soundsc(outPlay,SR/osFac); end
 if saveAudio
 %     audiowrite(fileName,OutPlay,SR/osFac*finalOSFac);
     %adding offset to prevent clipping
-    outPlay/(max(abs(outPlay))+1e-3);
+    outPlay = outPlay/(max(abs(outPlay)));
     audiowrite(fileName,outPlay,SR/osFac,'BitsPerSample',64);
 end
 
